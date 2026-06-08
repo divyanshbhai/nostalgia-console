@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   description: 'Turn your TV into a multiplayer retro gaming console. Use your phone as the controller. No hardware required.',
   keywords: ['retro gaming', 'emulator', 'AirConsole', 'Android TV', 'phone controller', 'NES', 'SNES', 'GBA'],
   authors: [{ name: 'Nostalgia Console' }],
-  icons: { icon: '/logo.svg' },
+  icons: { icon: 'https://cdn-icons-png.flaticon.com/512/2780/2780137.png' },
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
