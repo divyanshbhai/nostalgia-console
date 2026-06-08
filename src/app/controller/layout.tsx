@@ -14,13 +14,14 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  interactiveWidget: 'resizes-content',
 }
 
 export default function ControllerLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
       data-page="controller"
-      style={{ height: '100dvh', overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none' }}
+      style={{ position: 'fixed', inset: 0, overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none', WebkitOverflowScrolling: 'touch' }}
     >
       {children}
     </div>

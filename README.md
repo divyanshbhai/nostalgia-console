@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://cdn-icons-png.flaticon.com/512/2780/2780137.png" alt="Nostalgia Console" width="80" />
+  <img src="public/logo.svg" alt="Nostalgia Console" width="80" />
 
   # Nostalgia Console
 

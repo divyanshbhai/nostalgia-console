@@ -9,7 +9,7 @@ export async function GET() {
     start_url: '/controller',
     scope: '/',
     display: 'standalone',
-    orientation: 'portrait',
+    orientation: 'any',
     background_color: '#0a1a1f',
     theme_color: '#06b6d4',
     icons: [
