@@ -1,0 +1,31 @@
+{
+  "name": "Nostalgia Console",
+  "short_name": "Nostalgia",
+  "description": "Browser-based retro gaming. Use your phone as a controller.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0a1f",
+  "theme_color": "#7c3aed",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "shortcuts": [
+    {
+      "name": "TV Mode",
+      "url": "/tv",
+      "description": "Open TV mode for playing games on big screen"
+    },
+    {
+      "name": "Controller Mode",
+      "url": "/controller",
+      "description": "Open controller mode to use phone as gamepad"
+    }
+  ]
+}

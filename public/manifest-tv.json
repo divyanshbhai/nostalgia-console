@@ -1,0 +1,20 @@
+{
+  "name": "Nostalgia Console TV",
+  "short_name": "TV Console",
+  "description": "Turn your TV into a retro gaming console. Display games, connect controllers, and play.",
+  "start_url": "/tv",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0f0a1f",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/icons/tv-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "prefer_related_applications": false
+}

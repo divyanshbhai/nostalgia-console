@@ -1,0 +1,20 @@
+{
+  "name": "Nostalgia Controller",
+  "short_name": "Controller",
+  "description": "Use your phone as a retro gaming controller. Connect to TV, upload games, and play.",
+  "start_url": "/controller",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a1f1f",
+  "theme_color": "#06b6d4",
+  "icons": [
+    {
+      "src": "/icons/controller-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "utilities"],
+  "prefer_related_applications": false
+}

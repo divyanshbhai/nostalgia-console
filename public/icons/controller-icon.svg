@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#06b6d4"/>
+  <rect x="56" y="160" width="400" height="240" rx="40" fill="#1a1a2e" stroke="#fff" stroke-width="8"/>
+  <!-- D-pad -->
+  <rect x="100" y="240" width="24" height="80" rx="4" fill="#374151"/>
+  <rect x="72" y="268" width="80" height="24" rx="4" fill="#374151"/>
+  <!-- Buttons -->
+  <circle cx="380" cy="240" r="24" fill="#ef4444"/>
+  <circle cx="420" cy="280" r="24" fill="#22c55e"/>
+  <circle cx="340" cy="280" r="24" fill="#3b82f6"/>
+  <circle cx="380" cy="320" r="24" fill="#facc15"/>
+  <!-- Start/Select -->
+  <rect x="220" y="340" width="72" height="20" rx="10" fill="#6b7280"/>
+  <rect x="220" y="200" width="72" height="20" rx="10" fill="#6b7280"/>
+</svg>

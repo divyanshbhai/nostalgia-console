@@ -1,0 +1,22 @@
+# deps
+node_modules/
+bun.lockb
+
+# build
+.next/
+tsconfig.tsbuildinfo
+
+# env — never commit real secrets
+.env.local
+.env.production.local
+.env*.local
+
+# db
+db/*.db
+
+# logs
+dev.log
+server.log
+
+# misc
+.DS_Store
