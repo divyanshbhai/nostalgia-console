@@ -20,3 +20,17 @@ server.log
 
 # misc
 .DS_Store
+
+# ROMs — copyrighted, never commit
+ROMS/**/*.nes
+ROMS/**/*.sfc
+ROMS/**/*.smc
+ROMS/**/*.gb
+ROMS/**/*.gbc
+ROMS/**/*.gba
+ROMS/**/*.md
+ROMS/**/*.gen
+ROMS/**/*.smd
+ROMS/**/*.sms
+ROMS/**/*.sg
+ROMS/**/*.txt

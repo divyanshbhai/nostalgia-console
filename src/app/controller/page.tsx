@@ -9,6 +9,7 @@ import { getProfileForConsole, NES_PROFILE } from '@/lib/controller-profiles'
 import { validateROM, getEmulatorConsoleType, getSupportedExtensions } from '@/lib/rom-validator'
 import { useWakeLock } from '@/hooks/use-wake-lock'
 import { Wifi, WifiOff, Gamepad2, Upload, Play, Check, X, Zap, RefreshCw, AlertCircle } from 'lucide-react'
+import { ROMLibraryBrowser, type ROMRecord } from '@/components/rom-library-browser'
 
 type Step = 'connect' | 'connecting' | 'lobby' | 'playing'
 interface Player { id: number; color: PlayerColor; ready: boolean; latency: number }
@@ -199,6 +200,25 @@ function PlayingScreen({ consoleType, player, romName, gameStatus, latency, isMu
     return () => window.removeEventListener('resize', update)
   }, [])
 
+  // Block Android back gesture / back button while playing
+  useEffect(() => {
+    history.pushState({ playing: true }, '')
+    const onPop = () => { history.pushState({ playing: true }, '') }
+    window.addEventListener('popstate', onPop)
+    return () => { window.removeEventListener('popstate', onPop); history.back() }
+  }, [])
+
+  // Request fullscreen to hide browser chrome (address bar + nav buttons)
+  useEffect(() => {
+    const el = document.documentElement as any
+    const req = el.requestFullscreen ?? el.webkitRequestFullscreen ?? el.mozRequestFullScreen
+    req?.call(el).catch(() => {})
+    return () => {
+      const exit = (document as any).exitFullscreen ?? (document as any).webkitExitFullscreen
+      exit?.call(document).catch(() => {})
+    }
+  }, [])
+
   const cs = PLAYER_COLORS[player?.color || 'red']
   const profile = consoleType ? getProfileForConsole(consoleType) : NES_PROFILE
   const hasShoulders = profile.systemButtons.some(b => b.id === 'l' || b.id === 'r')
@@ -227,11 +247,12 @@ function PlayingScreen({ consoleType, player, romName, gameStatus, latency, isMu
   // For 4-button diamond cluster, size fits in a square; for 2-3 buttons, inline row
   const isDiamond = btnCount === 4
   const isRow3 = btnCount === 3
+  // Diamond: cap tighter so buttons aren't spread across half the screen
   const faceAreaSize = isDiamond
-    ? Math.min(Math.round(Math.min(w * 0.44, ctrlH * 0.88)), 240)
+    ? Math.min(Math.round(Math.min(w * 0.36, ctrlH * 0.72)), 172)
     : Math.min(Math.round(Math.min(w * 0.44, ctrlH * 0.7)), 200)
   const btnSize = isDiamond
-    ? Math.round(faceAreaSize * 0.34)
+    ? Math.round(faceAreaSize * 0.38)
     : isRow3
       ? Math.round(faceAreaSize * 0.28)
       : Math.round(faceAreaSize * 0.38)
@@ -240,20 +261,33 @@ function PlayingScreen({ consoleType, player, romName, gameStatus, latency, isMu
 
   // Landscape overrides
   const lDpadSize = Math.min(Math.round(h * 0.6), 200)
-  const lBtnSize  = isDiamond ? Math.round(lDpadSize * 0.34) : Math.round(lDpadSize * 0.36)
+  const lBtnSize  = isDiamond ? Math.round(lDpadSize * 0.38) : Math.round(lDpadSize * 0.36)
   const lPillW = Math.round(h * 0.28)
   const lPillH = Math.round(h * 0.1)
 
   // ── Render face cluster ──────────────────────────────────────────────────────
   const renderFace = (areaSize: number, bSize: number) => {
     if (isDiamond) {
+      // Fixed compact diamond: total size = 2.6 × btnSize, buttons touch edges
+      const pad = Math.round(bSize * 0.18)
+      const diamondSize = bSize * 2 + pad * 2
+      // positions: top-center, right-center, bottom-center, left-center
+      const positions: Record<string, { left: number; top: number }> = {
+        x: { left: diamondSize / 2, top: 0 },
+        a: { left: diamondSize,     top: diamondSize / 2 },
+        b: { left: diamondSize / 2, top: diamondSize },
+        y: { left: 0,               top: diamondSize / 2 },
+      }
       return (
-        <div style={{ position: 'relative', width: areaSize, height: areaSize, flexShrink: 0 }}>
-          {faceLayout.map(({ id, label, color, fx, fy }) => (
-            <div key={id} style={{ position: 'absolute', left: `${fx * 100}%`, top: `${fy * 100}%`, transform: 'translate(-50%,-50%)' }}>
-              <FaceBtn id={id} label={label} color={color} size={bSize} onPress={sendInput} />
-            </div>
-          ))}
+        <div style={{ position: 'relative', width: diamondSize + bSize, height: diamondSize + bSize, flexShrink: 0 }}>
+          {faceLayout.map(({ id, label, color }) => {
+            const pos = positions[id] ?? { left: diamondSize / 2, top: diamondSize / 2 }
+            return (
+              <div key={id} style={{ position: 'absolute', left: pos.left, top: pos.top, transform: 'translate(-50%,-50%)' }}>
+                <FaceBtn id={id} label={label} color={color} size={bSize} onPress={sendInput} />
+              </div>
+            )
+          })}
         </div>
       )
     }
@@ -277,7 +311,7 @@ function PlayingScreen({ consoleType, player, romName, gameStatus, latency, isMu
 
   if (isLandscape) {
     return (
-      <div style={{ position: 'fixed', inset: 0, backgroundColor: profile.theme.background, display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)', touchAction: 'none', userSelect: 'none', fontFamily: 'system-ui,sans-serif', overflow: 'hidden' }}>
+      <div style={{ position: 'fixed', inset: 0, backgroundColor: profile.theme.background, display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)', touchAction: 'none', userSelect: 'none', fontFamily: 'system-ui,sans-serif', overflow: 'hidden', overscrollBehavior: 'none' }}>
         <MenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} gameStatus={gameStatus} isMuted={isMuted} isFullscreen={isFullscreen} doAction={doAction} />
         {/* Shoulder row */}
         {hasShoulders && (
@@ -313,7 +347,7 @@ function PlayingScreen({ consoleType, player, romName, gameStatus, latency, isMu
 
   // Portrait
   return (
-    <div style={{ position: 'fixed', inset: 0, backgroundColor: profile.theme.background, display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)', touchAction: 'none', userSelect: 'none', fontFamily: 'system-ui,sans-serif', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', inset: 0, backgroundColor: profile.theme.background, display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)', touchAction: 'none', userSelect: 'none', fontFamily: 'system-ui,sans-serif', overflow: 'hidden', overscrollBehavior: 'none' }}>
       <MenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} gameStatus={gameStatus} isMuted={isMuted} isFullscreen={isFullscreen} doAction={doAction} />
 
       {/* Status bar */}
@@ -371,6 +405,8 @@ function ControllerInner() {
   const [romError, setRomError]             = useState<{ error: string; suggestion: string } | null>(null)
   const [isUploading, setIsUploading]       = useState(false)
   const [uploadStage, setUploadStage]       = useState<'reading' | 'validating' | 'sending' | 'ready' | null>(null)
+  const [lobbyTab, setLobbyTab]             = useState<'library' | 'upload'>('library')
+  const [isLibraryLaunching, setLibLaunch]  = useState(false)
 
   const fileInputRef   = useRef<HTMLInputElement>(null)
   const pingRef        = useRef<NodeJS.Timeout | null>(null)
@@ -486,6 +522,19 @@ function ControllerInner() {
     } finally { setIsUploading(false); setUploadStage(null) }
   }, [])
 
+  // Launch a ROM from the built-in library — reuses the exact same upload pipeline
+  const launchLibraryROM = useCallback(async (rom: ROMRecord & { _buffer?: ArrayBuffer }) => {
+    const s = socketRef.current; if (!s || !playerRef.current) return
+    setLibLaunch(true)
+    try {
+      const buf: ArrayBuffer = rom._buffer ?? await fetch(`/api/roms/${rom.id}`).then(r => r.arrayBuffer())
+      const ct = rom.emulatorType as ConsoleType
+      s.emit('controller:upload-rom', { romData: buf, romName: rom.title, consoleType: ct, uploadedBy: playerRef.current.id })
+      setRomName(rom.title); setConsoleType(ct); setGameStatus('ready')
+      haptic.confirm()
+    } finally { setLibLaunch(false) }
+  }, [])
+
   const setReady = useCallback((r: boolean) => {
     const s = socketRef.current; const p = playerRef.current; if (!s || !p) return
     s.emit('controller:ready', { playerId: p.id, ready: r }); setPlayer(prev => prev ? { ...prev, ready: r } : null)
@@ -594,9 +643,9 @@ function ControllerInner() {
   // ── Lobby ────────────────────────────────────────────────────────────────────
   const cs = PLAYER_COLORS[player?.color || 'red']
   return (
-    <div style={{ minHeight: '100dvh', background: 'linear-gradient(180deg,#030712,#111827)', display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', fontFamily: 'system-ui,sans-serif' }}>
+    <div style={{ height: '100dvh', background: 'linear-gradient(180deg,#030712,#111827)', display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', fontFamily: 'system-ui,sans-serif', overflow: 'hidden' }}>
       <ReconnectBanner />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: cs.primary, boxShadow: `0 0 14px ${cs.primary}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 19, color: '#fff' }}>{player?.id ?? '?'}</div>
           <div>
@@ -607,58 +656,85 @@ function ControllerInner() {
         <div style={{ color: '#22d3ee', border: '1px solid rgba(6,182,212,0.3)', borderRadius: 8, padding: '5px 14px', fontFamily: 'monospace', fontSize: 14, fontWeight: 700 }}>{roomCode}</div>
       </div>
 
-      <div style={{ flex: 1, padding: 16, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {!romName ? (
           <>
-            {romError && (
-              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 16, padding: '14px 16px', display: 'flex', gap: 12 }}>
-                <AlertCircle style={{ width: 20, height: 20, color: '#f87171', flexShrink: 0, marginTop: 1 }} />
-                <div><p style={{ color: '#fca5a5', fontSize: 14, fontWeight: 700, margin: '0 0 4px' }}>{romError.error}</p><p style={{ color: '#9ca3af', fontSize: 12, margin: 0 }}>{romError.suggestion}</p></div>
-                <button onClick={() => setRomError(null)} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: 0, flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
-              </div>
-            )}
-            {isUploading && uploadStage && (
-              <div style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.25)', borderRadius: 16, padding: '14px 16px' }}>
-                {(['reading','validating','sending','ready'] as const).map(key => {
-                  const labels: Record<string, string> = { reading: 'Reading file…', validating: 'Detecting console…', sending: 'Sending to TV…', ready: 'Ready to launch!' }
-                  const colors: Record<string, string> = { reading: '#22d3ee', validating: '#a78bfa', sending: '#4ade80', ready: '#f59e0b' }
-                  const stages = ['reading','validating','sending','ready']
-                  const done   = stages.indexOf(key) < stages.indexOf(uploadStage!)
-                  const active = key === uploadStage
-                  return (
-                    <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                      <div style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: done ? `${colors[key]}30` : active ? `${colors[key]}18` : 'rgba(255,255,255,0.04)', border: `1.5px solid ${done || active ? colors[key] : 'rgba(255,255,255,0.08)'}` }}>
-                        {done ? <span style={{ color: colors[key], fontSize: 11 }}>✓</span> : active ? <div style={{ width: 8, height: 8, border: `2px solid ${colors[key]}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : null}
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: done ? '#6b7280' : active ? '#fff' : '#374151' }}>{labels[key]}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            <div onClick={() => !isUploading && fileInputRef.current?.click()}
-              style={{ border: `2px dashed ${romError ? '#ef4444' : '#374151'}`, borderRadius: 20, padding: 36, textAlign: 'center', cursor: isUploading ? 'default' : 'pointer', opacity: isUploading ? 0.4 : 1 }}
-              onTouchStart={e => { if (!isUploading) e.currentTarget.style.borderColor = '#22d3ee' }}
-              onTouchEnd={e => (e.currentTarget.style.borderColor = romError ? '#ef4444' : '#374151')}>
-              <Upload style={{ width: 48, height: 48, color: '#6b7280', margin: '0 auto 14px', display: 'block' }} />
-              <p style={{ color: '#fff', fontSize: 18, fontWeight: 700, margin: '0 0 6px' }}>Upload ROM</p>
-              <p style={{ color: '#6b7280', fontSize: 13, margin: 0 }}>NES · SNES · GBA · GB · GBC · Genesis · SMS</p>
-              <input ref={fileInputRef} type="file" accept={getSupportedExtensions()} style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { uploadROM(f); e.target.value = '' } }} />
+            {/* ── Tab switcher: Library / Upload ───────────────────────── */}
+            <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0', flexShrink: 0 }}>
+              {(['library', 'upload'] as const).map(tab => (
+                <button key={tab} onClick={() => setLobbyTab(tab)} style={{
+                  flex: 1, height: 38, borderRadius: 12, border: 'none', cursor: 'pointer',
+                  fontWeight: 700, fontSize: 13, letterSpacing: '0.04em', textTransform: 'uppercase',
+                  background: lobbyTab === tab ? '#7c3aed' : 'rgba(255,255,255,0.05)',
+                  color: lobbyTab === tab ? '#fff' : '#6b7280',
+                  boxShadow: lobbyTab === tab ? '0 4px 14px rgba(124,58,237,0.4)' : 'none',
+                  transition: 'background 150ms, color 150ms',
+                  WebkitTapHighlightColor: 'transparent',
+                }}>
+                  {tab === 'library' ? '🎮 Library' : '📁 Upload'}
+                </button>
+              ))}
             </div>
+
+            {/* ── Library panel ─────────────────────────────────────────── */}
+            {lobbyTab === 'library' && (
+              <ROMLibraryBrowser
+                onLaunch={launchLibraryROM}
+                isLaunching={isLibraryLaunching}
+              />
+            )}
+
+            {/* ── Upload panel (unchanged) ───────────────────────────────── */}
+            {lobbyTab === 'upload' && (
+              <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {romError && (
+                  <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 16, padding: '14px 16px', display: 'flex', gap: 12 }}>
+                    <AlertCircle style={{ width: 20, height: 20, color: '#f87171', flexShrink: 0, marginTop: 1 }} />
+                    <div><p style={{ color: '#fca5a5', fontSize: 14, fontWeight: 700, margin: '0 0 4px' }}>{romError.error}</p><p style={{ color: '#9ca3af', fontSize: 12, margin: 0 }}>{romError.suggestion}</p></div>
+                    <button onClick={() => setRomError(null)} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: 0, flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
+                  </div>
+                )}
+                {isUploading && uploadStage && (
+                  <div style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.25)', borderRadius: 16, padding: '14px 16px' }}>
+                    {(['reading','validating','sending','ready'] as const).map(key => {
+                      const labels: Record<string, string> = { reading: 'Reading file…', validating: 'Detecting console…', sending: 'Sending to TV…', ready: 'Ready to launch!' }
+                      const colors: Record<string, string> = { reading: '#22d3ee', validating: '#a78bfa', sending: '#4ade80', ready: '#f59e0b' }
+                      const stages = ['reading','validating','sending','ready']
+                      const done   = stages.indexOf(key) < stages.indexOf(uploadStage!)
+                      const active = key === uploadStage
+                      return (
+                        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                          <div style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: done ? `${colors[key]}30` : active ? `${colors[key]}18` : 'rgba(255,255,255,0.04)', border: `1.5px solid ${done || active ? colors[key] : 'rgba(255,255,255,0.08)'}` }}>
+                            {done ? <span style={{ color: colors[key], fontSize: 11 }}>✓</span> : active ? <div style={{ width: 8, height: 8, border: `2px solid ${colors[key]}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : null}
+                          </div>
+                          <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: done ? '#6b7280' : active ? '#fff' : '#374151' }}>{labels[key]}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                <div onClick={() => !isUploading && fileInputRef.current?.click()}
+                  style={{ border: `2px dashed ${romError ? '#ef4444' : '#374151'}`, borderRadius: 20, padding: 36, textAlign: 'center', cursor: isUploading ? 'default' : 'pointer', opacity: isUploading ? 0.4 : 1 }}
+                  onTouchStart={e => { if (!isUploading) e.currentTarget.style.borderColor = '#22d3ee' }}
+                  onTouchEnd={e => (e.currentTarget.style.borderColor = romError ? '#ef4444' : '#374151')}>
+                  <Upload style={{ width: 48, height: 48, color: '#6b7280', margin: '0 auto 14px', display: 'block' }} />
+                  <p style={{ color: '#fff', fontSize: 18, fontWeight: 700, margin: '0 0 6px' }}>Upload ROM</p>
+                  <p style={{ color: '#6b7280', fontSize: 13, margin: 0 }}>NES · SNES · GBA · GB · GBC · Genesis · SMS</p>
+                  <input ref={fileInputRef} type="file" accept={getSupportedExtensions()} style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { uploadROM(f); e.target.value = '' } }} />
+                </div>
+              </div>
+            )}
           </>
         ) : (
-          <div style={{ background: 'rgba(31,41,55,0.7)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: 20, padding: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 52, height: 52, background: 'rgba(74,222,128,0.12)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Check style={{ width: 24, height: 24, color: '#4ade80' }} /></div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ color: '#fff', fontWeight: 800, fontSize: 16, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{romName}</p>
-              <p style={{ color: '#9ca3af', fontSize: 12, margin: '3px 0 0' }}>{{ nes:'NES', snes:'SNES', gba:'GBA', gb:'Game Boy', gbc:'Game Boy Color', genesis:'Genesis', sms:'Master System' }[consoleType || 'nes'] ?? consoleType?.toUpperCase()}</p>
+          <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ background: 'rgba(31,41,55,0.7)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: 20, padding: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 52, height: 52, background: 'rgba(74,222,128,0.12)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Check style={{ width: 24, height: 24, color: '#4ade80' }} /></div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ color: '#fff', fontWeight: 800, fontSize: 16, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{romName}</p>
+                <p style={{ color: '#9ca3af', fontSize: 12, margin: '3px 0 0' }}>{{ nes:'NES', snes:'SNES', gba:'GBA', gb:'Game Boy', gbc:'Game Boy Color', genesis:'Genesis', sms:'Master System' }[consoleType || 'nes'] ?? consoleType?.toUpperCase()}</p>
+              </div>
+              <button onClick={() => { setRomName(null); setGameStatus('idle') }} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: 4 }}><X style={{ width: 18, height: 18 }} /></button>
             </div>
-            <button onClick={() => { setRomName(null); setGameStatus('idle') }} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: 4 }}><X style={{ width: 18, height: 18 }} /></button>
-          </div>
-        )}
-
-        {romName && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <button onClick={() => setReady(!player?.ready)} style={{ width: '100%', height: 60, borderRadius: 18, backgroundColor: player?.ready ? '#15803d' : '#0e7490', color: '#fff', fontSize: 20, fontWeight: 800, border: 'none', cursor: 'pointer', boxShadow: player?.ready ? '0 0 24px rgba(22,163,74,0.35)' : '0 0 20px rgba(8,145,178,0.25)' }}>
               {player?.ready ? '✓  Ready!' : 'Press Ready'}
             </button>
